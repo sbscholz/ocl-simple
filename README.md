@@ -21,6 +21,7 @@ Here an excerpt from our example application:
 
     err = clReleaseKernel (kernel);
     err = freeDevice();
+  }
 ```
 
 where `data` and `results` are pointers to host buffers and `count` is an integer variable on the host.
