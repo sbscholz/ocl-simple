@@ -16,6 +16,8 @@ Here an excerpt from our example application:
                                                      IntConst, count);
     runKernel( kernel, 1, global, local);
 
+    print( results, count);
+
     printKernelTime();
     printTransferTimes();
 
