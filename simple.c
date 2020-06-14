@@ -48,15 +48,15 @@ static int num_d2h = 0;
 
 char *getMemStr( size_t n)
 {
-  static char buf[10];
+  static char buf[50];
   if (n>=1073741824) {
-    snprintf( buf, 9, "%.2f GB", (float)n/1073741824.0);
+    snprintf( buf, 49, "%.2f GB", (float)n/1073741824.0);
   } else if (n>=1048576) {
-    snprintf( buf, 9, "%.2f MB", (float)n/1048576.0);
+    snprintf( buf, 49, "%.2f MB", (float)n/1048576.0);
   } else if (n>=1024) {
-    snprintf( buf, 9, "%.2f KB", (float)n/1024.0);
+    snprintf( buf, 49, "%.2f KB", (float)n/1024.0);
   } else {
-    snprintf( buf, 9, "%zu byte", n);
+    snprintf( buf, 49, "%zu byte", n);
   }
   return buf;
 }
@@ -232,7 +232,11 @@ cl_int initDevice ( int devType)
         die ("Error: Failed to create a compute context!");
       } else {
         /* Create a command commands.  */
+#ifdef CL_VERSION_2_0
+        commands = clCreateCommandQueueWithProperties (context, device_id, 0, &err);
+#else
         commands = clCreateCommandQueue (context, device_id, 0, &err);
+#endif
         if (!commands || err != CL_SUCCESS) {
           die ("Error: Failed to create a command commands!");
         }
