@@ -96,7 +96,7 @@ char *readOpenCL( char *fname)
    fseek(f, 0, SEEK_SET);
 
    str = (char *)malloc(fsize + 1);
-   if (str == NULL) 
+   if (str == NULL)
       die ("Error: failed to allocate memory for kernel of size %ld", fsize+1);
    fread(str, 1, fsize, f);
    fclose(f);
@@ -225,7 +225,7 @@ cl_int initDevice ( int devType)
     }
     if (err != CL_SUCCESS) {
       die ("Error: Failed to find a suitable platform!");
-    } else { 
+    } else {
       /* Create a compute context.  */
       context = clCreateContext (0, 1, &device_id, NULL, NULL, &err);
       if (!context || err != CL_SUCCESS) {
@@ -471,7 +471,7 @@ case tname ## Arr:                                           \
                               kernel_args[i].t ## _host_buf, \
                               kernel_args[i].num_elems);     \
 break;
-   
+
 cl_int runKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
 {
   cl_int err = CL_SUCCESS;
@@ -479,15 +479,18 @@ cl_int runKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
   launchKernel( kernel, dim, global, local);
 
   for( int i=0; i< num_kernel_args; i++) {
-    switch( kernel_args[i].arg_t) {
-       FETCH( Double, double)
-       FETCH( Float, float)
-       FETCH( Int, int)
-       FETCH( Bool, bool)
-       default:
-          die ("Error: illegal argument tag in runKernel!");
-          kernel = NULL;
-    }
+      switch( kernel_args[i].arg_t) {
+          FETCH( Double, double)
+          FETCH( Float, float)
+          FETCH( Int, int)
+          FETCH( Bool, bool)
+          case IntConst:
+              /* do nothing */
+              break;
+          default:
+              die ("Error: illegal argument tag in runKernel!");
+              kernel = NULL;
+      }
   }
 
   return err;
@@ -509,7 +512,7 @@ cl_int freeDevice()
   cl_int err;
 
   for( int i=0; i< num_kernel_args; i++) {
-    if( (kernel_args[i].arg_t == FloatArr) 
+    if( (kernel_args[i].arg_t == FloatArr)
          || (kernel_args[i].arg_t == DoubleArr))
       err = clReleaseMemObject (kernel_args[i].dev_buf);
   }

@@ -1,6 +1,7 @@
 #ifndef SIMPLE_H_
 #define SIMPLE_H_
 
+#include <stdbool.h>
 #include <CL/cl.h>
 
 /*******************************************************************************
