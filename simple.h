@@ -4,6 +4,18 @@
 #include <stdbool.h>
 #include <CL/cl.h>
 
+/* Macro to help with error checking */
+#define CL_SAFE(fncall)                                                         \
+{                                                                               \
+    cl_int err = fncall;                                                        \
+    if (err != CL_SUCCESS) {                                                    \
+        fprintf(stderr, "%s:%d call %s failed with error %s:\n",                \
+                        __FILE__, __LINE__, #fncall, errToStr(err));            \
+        exit(err);                                                              \
+    }                                                                           \
+}
+
+
 /*******************************************************************************
  *******************************************************************************
 
@@ -11,6 +23,13 @@
 
  *******************************************************************************
  ******************************************************************************/
+
+/*******************************************************************************
+ *
+ * errToStr : returns a string explaining what error a cl_int represents.
+ *
+ ******************************************************************************/
+const char *errToStr(cl_int err);
 
 /*******************************************************************************
  *
@@ -65,7 +84,7 @@ extern char *readOpenCL( char *fname);
         a) setupKernel consist of:
 
            kernel = createKernel( ... kernel-string...)
-           
+
            /
              buf = allocDev( ...size...)
              host2dev<arg-type>( ...host-buffer..., buf)
@@ -105,7 +124,7 @@ extern char *readOpenCL( char *fname);
  * initGPU : sets up the openCL environment for using a GPU.
  *           Note that the system may have more than one GPU in which case
  *           the one that has been pre-configured will be chosen.
- *           If anything goes wrong in the course, error messages will be 
+ *           If anything goes wrong in the course, error messages will be
  *           printed to stderr and the last error encountered will be returned.
  *
  * initGPUVerbose : triggers some additional information to be print to stdout
@@ -119,7 +138,7 @@ extern cl_int initGPUVerbose ();
 /*******************************************************************************
  *
  * initCPU : sets up the openCL environment for using the host machine.
- *           If anything goes wrong in the course, error messages will be 
+ *           If anything goes wrong in the course, error messages will be
  *           printed to stderr and the last error encountered will be returned.
  *           Note that this may go wrong as not all openCL implementations
  *           support this!
@@ -254,9 +273,9 @@ extern cl_int launchKernel( cl_kernel kernel, int dim, size_t *global, size_t *l
 /*******************************************************************************
  *
  * printKernelTime : we internally measure the wallclock time that elapses
- *                   during the kernel execution on the device. This routine 
+ *                   during the kernel execution on the device. This routine
  *                   prints the findings to stdout.
- *                   Note that the measurement does not include any data 
+ *                   Note that the measurement does not include any data
  *                   transfer times for arguments or results! Note also, that
  *                   the only functions that influence the time values are
  *                   launchKernel and runKernel. It does not matter how much

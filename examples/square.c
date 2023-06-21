@@ -28,7 +28,6 @@ void timeDirectImplementation( int count, float* data, float* results)
 
 int main (int argc, char * argv[])
 {
-  cl_int err;
   cl_kernel kernel;
   size_t global[1];
   size_t local[1];
@@ -59,38 +58,33 @@ int main (int argc, char * argv[])
   for (int i = 0; i < count; i++)
     data[i] = rand () / (float) RAND_MAX;
 
+  CL_SAFE(initGPUVerbose());
 
-  err = initGPUVerbose();
-  
-  if( err == CL_SUCCESS) {
-    kernel = setupKernel( KernelSource, "square", 3, FloatArr, count, data,
-                                                     FloatArr, count, results,
-                                                     IntConst, count);
+  kernel = setupKernel( KernelSource, "square", 3, FloatArr, count, data,
+                                                   FloatArr, count, results,
+                                                   IntConst, count);
 
-    runKernel( kernel, 1, global, local);
-  
-    clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &stop);
+  runKernel( kernel, 1, global, local);
 
-    printKernelTime();
-    printTimeElapsed( "CPU time spent");
+  clock_gettime( CLOCK_PROCESS_CPUTIME_ID, &stop);
 
-    /* Validate our results.  */
-    correct = 0;
-    for (int i = 0; i < count; i++)
-      if (results[i] == data[i] * data[i])
-        correct++;
+  printKernelTime();
+  printTimeElapsed( "CPU time spent");
 
-    /* Print a brief summary detailing the results.  */
-    printf ("Computed %d/%d %2.0f%% correct values\n", correct, count,
-            (float)count/correct*100.f);
+  /* Validate our results.  */
+  correct = 0;
+  for (int i = 0; i < count; i++)
+    if (results[i] == data[i] * data[i])
+      correct++;
 
-    err = clReleaseKernel (kernel);
-    err = freeDevice();
+  /* Print a brief summary detailing the results.  */
+  printf ("Computed %d/%d %2.0f%% correct values\n", correct, count,
+          (float)count/correct*100.f);
 
-    timeDirectImplementation( count, data, results);
-    
-  }
+  CL_SAFE(clReleaseKernel (kernel));
+  CL_SAFE(freeDevice());
 
+  timeDirectImplementation( count, data, results);
 
   return 0;
 }
