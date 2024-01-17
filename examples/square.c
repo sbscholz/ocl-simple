@@ -86,7 +86,8 @@ int main (int argc, char * argv[])
 
   timeDirectImplementation( count, data, results);
 
+  free(data);
+  free(results);
+
   return 0;
 }
-
-
