@@ -16,6 +16,8 @@ typedef struct {
   bool *bool_host_buf;
   int    num_elems;
   int    val;
+  float valf;
+  double vald;
 } kernel_arg;
 
 #define MAX_ARG 10
@@ -440,6 +442,15 @@ cl_kernel setupKernel( const char *kernel_source, char *kernel_name, int num_arg
           kernel_args[i].val = va_arg(ap, unsigned int);
           CL_SAFE(clSetKernelArg (kernel, i, sizeof (unsigned int), &kernel_args[i].val));
           break;
+        case FloatConst:
+          /* Promoted because va_arg pushes to stack */
+          kernel_args[i].valf = va_arg(ap, double);
+          CL_SAFE(clSetKernelArg (kernel, i, sizeof (float), &kernel_args[i].valf));
+          break;
+        case DoubleConst:
+          kernel_args[i].vald = va_arg(ap, double);
+          CL_SAFE(clSetKernelArg (kernel, i, sizeof (double), &kernel_args[i].vald));
+          break;
         default:
           die ("Error: illegal argument tag for executeKernel!");
       }
@@ -511,6 +522,12 @@ cl_int runKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
           FETCH( Int, int)
           FETCH( Bool, bool)
           case IntConst:
+              /* do nothing */
+              break;
+          case FloatConst:
+              /* do nothing */
+              break;
+          case DoubleConst:
               /* do nothing */
               break;
           default:

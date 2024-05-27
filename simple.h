@@ -167,6 +167,8 @@ extern cl_int initCPUVerbose ();
  *    doubleArr::clarg_type, num_elems::int, pointer::double *,     and
  *    FloatArr::clarg_type, num_elems::int, pointer::float *,     and
  *    IntConst::clarg_type, number::int
+ *    FloatConst::clarg_type, number::float
+ *    DoubleConst::clarg_type, number::double
  *
  *               If anything goes wrong in the course, error messages will be
  *               printed to stderr. The pointer to the fully prepared kernel
@@ -184,7 +186,9 @@ typedef enum {
   FloatArr,
   IntArr,
   BoolArr,
-  IntConst
+  IntConst,
+  FloatConst,
+  DoubleConst
 } clarg_type;
 
 extern cl_kernel setupKernel( const char *kernel_source, char *kernel_name, int num_args, ...);
