@@ -79,7 +79,7 @@ int main (int argc, char * argv[])
 
   /* Print a brief summary detailing the results.  */
   printf ("Computed %d/%d %2.0f%% correct values\n", correct, count,
-          (float)count/correct*100.f);
+          (float)correct/count*100.f);
 
   CL_SAFE(clReleaseKernel (kernel));
   CL_SAFE(freeDevice());
