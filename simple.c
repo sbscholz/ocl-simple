@@ -35,7 +35,7 @@ static bool verbose = false;
 static cl_platform_id cpPlatform;     /* openCL platform.  */
 static cl_device_id device_id;        /* Compute device id.  */
 static cl_context context;            /* Compute context.  */
-static cl_command_queue commands;     /* Compute command queue.  */
+cl_command_queue commands;            /* Compute command queue.  */
 static cl_program program;            /* Compute program.  */
 static int num_kernel_args;
 static kernel_arg kernel_args[MAX_ARG];
@@ -241,7 +241,7 @@ cl_int initDevice ( int devType)
   /* Connect to a compute device.  */
   err = clGetPlatformIDs (0, NULL, &num_platforms);
   if (CL_SUCCESS != err) {
-    die ("Error: %s", errToStr(err));
+    die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
   } else {
     cpPlatforms = (cl_platform_id *)malloc( sizeof( cl_platform_id)*num_platforms);
     err = clGetPlatformIDs(num_platforms, cpPlatforms, NULL);
@@ -273,12 +273,12 @@ cl_int initDevice ( int devType)
         }
     }
     if (err != CL_SUCCESS) {
-      die ("Error: %s", errToStr(err));
+      die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
     } else {
       /* Create a compute context.  */
       context = clCreateContext (0, 1, &device_id, NULL, NULL, &err);
       if (!context || err != CL_SUCCESS) {
-        die ("Error: %s", errToStr(err));
+        die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
       } else {
         /* Create a command commands.  */
 #ifdef CL_VERSION_2_0
@@ -287,7 +287,7 @@ cl_int initDevice ( int devType)
         commands = clCreateCommandQueue (context, device_id, 0, &err);
 #endif
         if (!commands || err != CL_SUCCESS) {
-          die ("Error: %s", errToStr(err));
+          die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
         }
       }
     }
@@ -332,7 +332,7 @@ cl_mem allocDev( size_t n)
      printf( "allocating %s on the device\n", getMemStr( n));
    mem = clCreateBuffer (context, CL_MEM_READ_WRITE, n, NULL, &err);
    if( err != CL_SUCCESS || mem == NULL)
-      die ("Error: %s", errToStr(err));
+      die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
 
    return mem;
 }
@@ -388,7 +388,7 @@ cl_kernel createKernel( const char *kernel_source, char *kernel_name)
                                        (const char **) &kernel_source,
                                        NULL, &err);
   if (!program || err != CL_SUCCESS) {
-    die ("Error: %s\n", errToStr(err));
+    die ("%s:%d: %s\n", __FILE__, __LINE__, errToStr(err));
   }
 
   /* Build the program executable.  */
