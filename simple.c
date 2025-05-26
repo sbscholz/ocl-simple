@@ -16,6 +16,8 @@ typedef struct {
   bool *bool_host_buf;
   int    num_elems;
   int    val;
+  float valf;
+  double vald;
 } kernel_arg;
 
 #define MAX_ARG 10
@@ -33,7 +35,7 @@ static bool verbose = false;
 static cl_platform_id cpPlatform;     /* openCL platform.  */
 static cl_device_id device_id;        /* Compute device id.  */
 static cl_context context;            /* Compute context.  */
-static cl_command_queue commands;     /* Compute command queue.  */
+cl_command_queue commands;            /* Compute command queue.  */
 static cl_program program;            /* Compute program.  */
 static int num_kernel_args;
 static kernel_arg kernel_args[MAX_ARG];
@@ -45,6 +47,73 @@ static double h2d_time = 0.0;
 static int num_h2d = 0;
 static double d2h_time = 0.0;
 static int num_d2h = 0;
+
+#define CaseReturnString(x) case x: return #x;
+
+const char *errToStr(cl_int err)
+{
+    switch (err) {
+        CaseReturnString(CL_SUCCESS                        )
+        CaseReturnString(CL_DEVICE_NOT_FOUND               )
+        CaseReturnString(CL_DEVICE_NOT_AVAILABLE           )
+        CaseReturnString(CL_COMPILER_NOT_AVAILABLE         )
+        CaseReturnString(CL_MEM_OBJECT_ALLOCATION_FAILURE  )
+        CaseReturnString(CL_OUT_OF_RESOURCES               )
+        CaseReturnString(CL_OUT_OF_HOST_MEMORY             )
+        CaseReturnString(CL_PROFILING_INFO_NOT_AVAILABLE   )
+        CaseReturnString(CL_MEM_COPY_OVERLAP               )
+        CaseReturnString(CL_IMAGE_FORMAT_MISMATCH          )
+        CaseReturnString(CL_IMAGE_FORMAT_NOT_SUPPORTED     )
+        CaseReturnString(CL_BUILD_PROGRAM_FAILURE          )
+        CaseReturnString(CL_MAP_FAILURE                    )
+        CaseReturnString(CL_MISALIGNED_SUB_BUFFER_OFFSET   )
+        CaseReturnString(CL_COMPILE_PROGRAM_FAILURE        )
+        CaseReturnString(CL_LINKER_NOT_AVAILABLE           )
+        CaseReturnString(CL_LINK_PROGRAM_FAILURE           )
+        CaseReturnString(CL_DEVICE_PARTITION_FAILED        )
+        CaseReturnString(CL_KERNEL_ARG_INFO_NOT_AVAILABLE  )
+        CaseReturnString(CL_INVALID_VALUE                  )
+        CaseReturnString(CL_INVALID_DEVICE_TYPE            )
+        CaseReturnString(CL_INVALID_PLATFORM               )
+        CaseReturnString(CL_INVALID_DEVICE                 )
+        CaseReturnString(CL_INVALID_CONTEXT                )
+        CaseReturnString(CL_INVALID_QUEUE_PROPERTIES       )
+        CaseReturnString(CL_INVALID_COMMAND_QUEUE          )
+        CaseReturnString(CL_INVALID_HOST_PTR               )
+        CaseReturnString(CL_INVALID_MEM_OBJECT             )
+        CaseReturnString(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR)
+        CaseReturnString(CL_INVALID_IMAGE_SIZE             )
+        CaseReturnString(CL_INVALID_SAMPLER                )
+        CaseReturnString(CL_INVALID_BINARY                 )
+        CaseReturnString(CL_INVALID_BUILD_OPTIONS          )
+        CaseReturnString(CL_INVALID_PROGRAM                )
+        CaseReturnString(CL_INVALID_PROGRAM_EXECUTABLE     )
+        CaseReturnString(CL_INVALID_KERNEL_NAME            )
+        CaseReturnString(CL_INVALID_KERNEL_DEFINITION      )
+        CaseReturnString(CL_INVALID_KERNEL                 )
+        CaseReturnString(CL_INVALID_ARG_INDEX              )
+        CaseReturnString(CL_INVALID_ARG_VALUE              )
+        CaseReturnString(CL_INVALID_ARG_SIZE               )
+        CaseReturnString(CL_INVALID_KERNEL_ARGS            )
+        CaseReturnString(CL_INVALID_WORK_DIMENSION         )
+        CaseReturnString(CL_INVALID_WORK_GROUP_SIZE        )
+        CaseReturnString(CL_INVALID_WORK_ITEM_SIZE         )
+        CaseReturnString(CL_INVALID_GLOBAL_OFFSET          )
+        CaseReturnString(CL_INVALID_EVENT_WAIT_LIST        )
+        CaseReturnString(CL_INVALID_EVENT                  )
+        CaseReturnString(CL_INVALID_OPERATION              )
+        CaseReturnString(CL_INVALID_GL_OBJECT              )
+        CaseReturnString(CL_INVALID_BUFFER_SIZE            )
+        CaseReturnString(CL_INVALID_MIP_LEVEL              )
+        CaseReturnString(CL_INVALID_GLOBAL_WORK_SIZE       )
+        CaseReturnString(CL_INVALID_PROPERTY               )
+        CaseReturnString(CL_INVALID_IMAGE_DESCRIPTOR       )
+        CaseReturnString(CL_INVALID_COMPILER_OPTIONS       )
+        CaseReturnString(CL_INVALID_LINKER_OPTIONS         )
+        CaseReturnString(CL_INVALID_DEVICE_PARTITION_COUNT )
+        default: return "Unknown OpenCL error code";
+    }
+}
 
 char *getMemStr( size_t n)
 {
@@ -84,7 +153,7 @@ char *getTimeStr( double time)
 char *readOpenCL( char *fname)
 {
    FILE *f;
-   long fsize;
+   size_t fsize;
    char *str;
 
    f = fopen(fname, "r");
@@ -98,7 +167,9 @@ char *readOpenCL( char *fname)
    str = (char *)malloc(fsize + 1);
    if (str == NULL)
       die ("Error: failed to allocate memory for kernel of size %ld", fsize+1);
-   fread(str, 1, fsize, f);
+   size_t read_size;
+   if ((read_size = fread(str, 1, fsize, f)) != fsize)
+      die ("Error: read %zu bytes, expected %zu bytes", read_size, fsize);
    fclose(f);
 
    str[fsize] = 0;
@@ -108,72 +179,50 @@ char *readOpenCL( char *fname)
 char *getPlatformName( cl_platform_id platform)
 {
   size_t size;
-  cl_int err;
   static char * res=NULL;
 
-  err = clGetPlatformInfo( platform, CL_PLATFORM_NAME,0,NULL,&size);
-  if (CL_SUCCESS != err) {
-    die ("Error: Failed to obtain platform info!");
-  } else {
-    res = (char *)realloc( res, sizeof(char) * size + 1);
-    err = clGetPlatformInfo( platform, CL_PLATFORM_NAME,size+1,res,NULL);
-  }
+  CL_SAFE(clGetPlatformInfo( platform, CL_PLATFORM_NAME,0,NULL,&size));
+  res = (char *)realloc( res, sizeof(char) * size + 1);
+  CL_SAFE(clGetPlatformInfo( platform, CL_PLATFORM_NAME,size+1,res,NULL));
   return res;
 }
 
 cl_uint getDeviceMaxComputeUnits( cl_device_id device)
 {
-  cl_int err;
   cl_uint res;
 
-  err = clGetDeviceInfo( device, CL_DEVICE_MAX_COMPUTE_UNITS,sizeof(cl_uint),&res,NULL);
-  if (CL_SUCCESS != err) {
-    die ("Error: Failed to obtain device info!");
-  }
+  CL_SAFE(clGetDeviceInfo( device, CL_DEVICE_MAX_COMPUTE_UNITS,sizeof(cl_uint),&res,NULL));
   return res;
 }
 
 cl_ulong getMaxAlloc( cl_device_id device)
 {
-  cl_int err;
   cl_ulong res;
 
-  err = clGetDeviceInfo( device, CL_DEVICE_MAX_MEM_ALLOC_SIZE,sizeof(cl_ulong),&res,NULL);
-  if (CL_SUCCESS != err) {
-    die ("Error: Failed to obtain device info!");
-  }
+  CL_SAFE(clGetDeviceInfo( device, CL_DEVICE_MAX_MEM_ALLOC_SIZE,sizeof(cl_ulong),&res,NULL));
   return res;
 }
 
 cl_ulong getMemSize( cl_device_id device)
 {
-  cl_int err;
   cl_ulong res;
 
-  err = clGetDeviceInfo( device, CL_DEVICE_GLOBAL_MEM_SIZE,sizeof(cl_ulong),&res,NULL);
-  if (CL_SUCCESS != err) {
-    die ("Error: Failed to obtain device info!");
-  }
+  CL_SAFE(clGetDeviceInfo( device, CL_DEVICE_GLOBAL_MEM_SIZE,sizeof(cl_ulong),&res,NULL));
   return res;
 }
 
 size_t getDeviceMaxWorkItems( cl_device_id device, int dim)
 {
-   cl_int err = CL_SUCCESS;
    size_t maxWI = 0;
    size_t max[3];
 
    if( dim >= 0 && dim < 3) {
-      err = clGetDeviceInfo(device,
+      CL_SAFE(clGetDeviceInfo(device,
                             CL_DEVICE_MAX_WORK_ITEM_SIZES,
                             3*sizeof(size_t),
                             &max,
-                            NULL);
-      if (CL_SUCCESS != err) {
-         die ("Error: Failed to get device info on work item sizes!");
-      } else {
-         maxWI = max[dim];
-      }
+                            NULL));
+      maxWI = max[dim];
    } else {
       die ("Error: maxWorkItems called with illegal parameter!");
    }
@@ -192,7 +241,7 @@ cl_int initDevice ( int devType)
   /* Connect to a compute device.  */
   err = clGetPlatformIDs (0, NULL, &num_platforms);
   if (CL_SUCCESS != err) {
-    die ("Error: Failed to find a platform!");
+    die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
   } else {
     cpPlatforms = (cl_platform_id *)malloc( sizeof( cl_platform_id)*num_platforms);
     err = clGetPlatformIDs(num_platforms, cpPlatforms, NULL);
@@ -209,7 +258,7 @@ cl_int initDevice ( int devType)
               printf( "             %zux%zux%zu max local\n", getDeviceMaxWorkItems( cpDevices[j], 0),
                                                             getDeviceMaxWorkItems( cpDevices[j], 1),
                                                             getDeviceMaxWorkItems( cpDevices[j], 2));
-              printf( "             %s gloabl mem\n", getMemStr( getMemSize(cpDevices[j])));
+              printf( "             %s global mem\n", getMemStr( getMemSize(cpDevices[j])));
             }
           } else {
             printf( "  no suitable device found\n");
@@ -224,12 +273,12 @@ cl_int initDevice ( int devType)
         }
     }
     if (err != CL_SUCCESS) {
-      die ("Error: Failed to find a suitable platform!");
+      die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
     } else {
       /* Create a compute context.  */
       context = clCreateContext (0, 1, &device_id, NULL, NULL, &err);
       if (!context || err != CL_SUCCESS) {
-        die ("Error: Failed to create a compute context!");
+        die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
       } else {
         /* Create a command commands.  */
 #ifdef CL_VERSION_2_0
@@ -238,7 +287,7 @@ cl_int initDevice ( int devType)
         commands = clCreateCommandQueue (context, device_id, 0, &err);
 #endif
         if (!commands || err != CL_SUCCESS) {
-          die ("Error: Failed to create a command commands!");
+          die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
         }
       }
     }
@@ -283,7 +332,7 @@ cl_mem allocDev( size_t n)
      printf( "allocating %s on the device\n", getMemStr( n));
    mem = clCreateBuffer (context, CL_MEM_READ_WRITE, n, NULL, &err);
    if( err != CL_SUCCESS || mem == NULL)
-      die ("Error: Failed to allocate device memory!");
+      die ("%s:%d: %s", __FILE__, __LINE__, errToStr(err));
 
    return mem;
 }
@@ -291,17 +340,12 @@ cl_mem allocDev( size_t n)
 #define H2D( tname, t)                                                          \
 void host2dev ##tname ##Arr( t *a, cl_mem ad, size_t n)                         \
 {                                                                               \
-   cl_int err = CL_SUCCESS;                                                     \
-                                                                                \
    clock_gettime( CLOCK_REALTIME, &start);                                      \
    if (verbose)                                                                 \
       printf( "transferring %s to device\n", getMemStr( sizeof (t) * n));       \
-   err = clEnqueueWriteBuffer( commands, ad, CL_TRUE, 0,                        \
+   CL_SAFE(clEnqueueWriteBuffer( commands, ad, CL_TRUE, 0,                      \
                                sizeof (t) * n,                                  \
-                               a, 0, NULL, NULL);                               \
-   if( CL_SUCCESS != err) {                                                     \
-      die ("Error: Failed to transfer from host to device!");                   \
-   }                                                                            \
+                               a, 0, NULL, NULL));                              \
    clock_gettime( CLOCK_REALTIME, &stop);                                       \
    num_h2d++;                                                                   \
    h2d_time += (stop.tv_sec -start.tv_sec)*1000.0                               \
@@ -316,17 +360,12 @@ H2D( Bool, bool)
 #define D2H( tname, t)                                                         \
 void dev2host ##tname ##Arr( cl_mem ad, t* a, size_t n)                        \
 {                                                                              \
-   cl_int err = CL_SUCCESS;                                                    \
-                                                                               \
    clock_gettime( CLOCK_REALTIME, &start);                                     \
    if (verbose)                                                                \
       printf( "transferring %s to host\n", getMemStr( sizeof (t) * n));        \
-   err = clEnqueueReadBuffer( commands, ad, CL_TRUE, 0,                        \
+   CL_SAFE(clEnqueueReadBuffer( commands, ad, CL_TRUE, 0,                      \
                               sizeof (t) * n,                                  \
-                              a, 0, NULL, NULL);                               \
-   if( CL_SUCCESS != err) {                                                    \
-      die ("Error: Failed to transfer from device to host!");                  \
-   }                                                                           \
+                              a, 0, NULL, NULL));                              \
    clock_gettime( CLOCK_REALTIME, &stop);                                      \
    num_d2h++;                                                                  \
    d2h_time += (stop.tv_sec -start.tv_sec)*1000.0                              \
@@ -349,7 +388,7 @@ cl_kernel createKernel( const char *kernel_source, char *kernel_name)
                                        (const char **) &kernel_source,
                                        NULL, &err);
   if (!program || err != CL_SUCCESS) {
-    die ("Error: Failed to create compute program!");
+    die ("%s:%d: %s\n", __FILE__, __LINE__, errToStr(err));
   }
 
   /* Build the program executable.  */
@@ -380,17 +419,12 @@ case tname ## Arr:                                                              
    kernel_args[i].dev_buf = allocDev ( sizeof (t) * kernel_args[i].num_elems);   \
    host2dev ## tname ## Arr ( kernel_args[i].t##_host_buf,                       \
                               kernel_args[i].dev_buf, kernel_args[i].num_elems); \
-   err = clSetKernelArg (kernel, i, sizeof (cl_mem), &kernel_args[i].dev_buf);   \
-   if( CL_SUCCESS != err) {                                                      \
-      die ("Error: Failed to set kernel arg %d!", i);                            \
-      kernel = NULL;                                                             \
-   }                                                                             \
+   CL_SAFE(clSetKernelArg (kernel, i, sizeof (cl_mem), &kernel_args[i].dev_buf);)\
 break;
 
 cl_kernel setupKernel( const char *kernel_source, char *kernel_name, int num_args, ...)
 {
    cl_kernel kernel = NULL;
-   cl_int err = CL_SUCCESS;
    va_list ap;
    int i;
 
@@ -406,15 +440,19 @@ cl_kernel setupKernel( const char *kernel_source, char *kernel_name, int num_arg
         SETUPARG( Bool, bool)
         case IntConst:
           kernel_args[i].val = va_arg(ap, unsigned int);
-          err = clSetKernelArg (kernel, i, sizeof (unsigned int), &kernel_args[i].val);
-          if( CL_SUCCESS != err) {
-            die ("Error: Failed to set kernel arg %d!", i);
-            kernel = NULL;
-          }
+          CL_SAFE(clSetKernelArg (kernel, i, sizeof (unsigned int), &kernel_args[i].val));
+          break;
+        case FloatConst:
+          /* Promoted because va_arg pushes to stack */
+          kernel_args[i].valf = va_arg(ap, double);
+          CL_SAFE(clSetKernelArg (kernel, i, sizeof (float), &kernel_args[i].valf));
+          break;
+        case DoubleConst:
+          kernel_args[i].vald = va_arg(ap, double);
+          CL_SAFE(clSetKernelArg (kernel, i, sizeof (double), &kernel_args[i].vald));
           break;
         default:
           die ("Error: illegal argument tag for executeKernel!");
-          kernel = NULL;
       }
    }
    va_end(ap);
@@ -425,7 +463,6 @@ cl_kernel setupKernel( const char *kernel_source, char *kernel_name, int num_arg
 cl_int launchKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
 {
   cl_int err;
-
   if (verbose) {
     printf( "Trying to launch a kernel with global [ ");
     for(int i=0; i<dim; i++) {
@@ -439,8 +476,8 @@ cl_int launchKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
   }
   clock_gettime( CLOCK_REALTIME, &start);
   if (CL_SUCCESS
-      != clEnqueueNDRangeKernel (commands, kernel,
-                                 dim, NULL, global, local, 0, NULL, NULL)) {
+      != (err = clEnqueueNDRangeKernel (commands, kernel,
+                                 dim, NULL, global, local, 0, NULL, NULL))) {
     if (!verbose) {
       printf( "Tried launching kernel with global [ ");
       for(int i=0; i<dim; i++) {
@@ -452,17 +489,17 @@ cl_int launchKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
       }
       printf( "]\n");
     }
-    die ("Error: Failed to execute kernel!");
+    die ("Error: %s", errToStr(err));
   }
 
   /* Wait for all commands to complete.  */
-  err = clFinish (commands);
+  CL_SAFE(clFinish (commands));
   clock_gettime( CLOCK_REALTIME, &stop);
   num_kernel++;
   kernel_time += (stop.tv_sec -start.tv_sec)*1000.0
                   + (stop.tv_nsec -start.tv_nsec)/1000000.0;
 
-  return err;
+  return CL_SUCCESS;
 }
 
 #define FETCH( tname, t)                                     \
@@ -487,6 +524,12 @@ cl_int runKernel( cl_kernel kernel, int dim, size_t *global, size_t *local)
           case IntConst:
               /* do nothing */
               break;
+          case FloatConst:
+              /* do nothing */
+              break;
+          case DoubleConst:
+              /* do nothing */
+              break;
           default:
               die ("Error: illegal argument tag in runKernel!");
               kernel = NULL;
@@ -509,19 +552,14 @@ void printTransferTimes()
 
 cl_int freeDevice()
 {
-  cl_int err;
-
   for( int i=0; i< num_kernel_args; i++) {
     if( (kernel_args[i].arg_t == FloatArr)
          || (kernel_args[i].arg_t == DoubleArr))
-      err = clReleaseMemObject (kernel_args[i].dev_buf);
+      CL_SAFE(clReleaseMemObject (kernel_args[i].dev_buf));
   }
-  err = clReleaseProgram (program);
-  err = clReleaseCommandQueue (commands);
-  err = clReleaseContext (context);
+  CL_SAFE(clReleaseProgram (program));
+  CL_SAFE(clReleaseCommandQueue (commands));
+  CL_SAFE(clReleaseContext (context));
 
-  return err;
+  return CL_SUCCESS;
 }
-
-
-
